@@ -12,6 +12,7 @@ Data: 15/12/2022
 
 # Import system modules
 import os
+import sys
 import arcpy
 from arcpy import management as management
 from arcpy import analysis as analysis
@@ -773,11 +774,25 @@ def aprx_project(inp_toolbox_path, output, fgdb_path_new):
 
 # funcao responsavel por imprimir o maps series
 def print_map_series(aprx, output):
-    project = arcpy.mp.ArcGISProject(aprx)  #"CURRENT" can also be used to replace the path
-    lyt = project.listLayouts()[0] #x: The number of the layout within the project
-    ms = lyt.mapSeries
-    ms.exportToPDF(os.path.join(output, f'{lyt.name}'))
-    print("Export Succeeded")
+    
+    output_jpeg = os.path.join(output, 'mapas_jpeg')
+    if not os.path.exists(output_jpeg):
+        os.mkdir(output_jpeg)
+    
+    output_pdf = os.path.join(output, 'mapas_pdf')
+    if not os.path.exists(output_pdf):
+        os.mkdir(output_pdf)
+        
+    project = arcpy.mp.ArcGISProject(aprx)  # aprx é o arquivo onde está configurado o Map Series
+    lyt = project.listLayouts()[0] #x: o numero do layout do projeto
+    if not lyt.mapSeries is None:
+        ms = lyt.mapSeries
+        if ms.enabled:
+            for pageNum in range(1, ms.pageCount + 1):
+                ms.currentPageNumber = pageNum
+                pageName = f'{int(ms.pageRow.ID_IMOVEL)} - {ms.pageRow.NM_PRODTOR}' # NM_PRODTOR é o campo da tabela de atributos que representa o nome do produtor
+                lyt.exportToJPEG(os.path.join(output_jpeg, f'{pageName}.jpg'), resolution=300)
+                lyt.exportToPDF(os.path.join(output_pdf, f'{pageName}.pdf'), resolution=300)
 
 dataset_list = list(create_fgdb(output, sptial_ref))
 module_input = add_input(input_lakes, input_water_bodies, input_rivers, input_properties, input_springs, input_veg_2008, input_veg_current, input_ppa_areas, input_saf, input_others_uses, dataset_list[0], input_toolbox_path)
