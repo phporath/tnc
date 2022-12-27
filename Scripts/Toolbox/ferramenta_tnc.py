@@ -7,7 +7,7 @@ Cliente: TNC
 Projeto: Ferramenta Forest Code Analysis
 Objetivo: Automatizacao de diagnostico ambiental de imoveis rurais do projeto P4F. 
 Versao: 1.0
-Data: 15/12/2022
+Data: 27/12/2022
 '''
 
 # Import system modules
@@ -724,7 +724,7 @@ def calculate(v_properties, v_outputs, v_outputs_calculate):
     return properties_join_9
 
 # funcao responsavel por calcular novos dados de propriedades (esse modulo nao era gerado no antigo Model Builder)
-def properties(v_lakes, v_veg_current, v_saf, v_others_uses, v_properties_join, v_output, v_sptial_ref, v_input):
+def properties(v_lakes, v_veg_current, v_saf, v_others_uses, v_properties_join, v_output, v_sptial_ref, v_input, v_springs, v_rivers):
     
     if input_saf == "":
         management.CreateFeatureclass(out_path=v_input, out_name='saf', spatial_reference=v_sptial_ref)
@@ -734,9 +734,25 @@ def properties(v_lakes, v_veg_current, v_saf, v_others_uses, v_properties_join, 
         management.CreateFeatureclass(out_path=v_input, out_name='others_uses', spatial_reference=v_sptial_ref)
         management.AddField(in_table=v_others_uses, field_name='ID_PROPRIE', field_type='DOUBLE', field_precision=None, field_scale=None, field_length=None, field_alias="", field_is_nullable="NULLABLE", field_is_required="NON_REQUIRED", field_domain="")[0]   
 
+    # Process: Clip (analysis)
+    saf_clip = rf'{v_output}\saf_clip'
+    analysis.Clip(in_features=v_saf, clip_features=v_properties_join, out_feature_class=saf_clip, cluster_tolerance='')
+    
+    others_uses_clip = rf'{v_output}\others_uses_clip'
+    analysis.Clip(in_features=v_others_uses, clip_features=v_properties_join, out_feature_class=others_uses_clip, cluster_tolerance='')
+    
+    springs_clip = rf'{v_output}\springs_clip'
+    analysis.Clip(in_features=v_springs, clip_features=v_properties_join, out_feature_class=springs_clip, cluster_tolerance='')
+    
+    lakes_clip = rf'{v_output}\lakes_clip'
+    analysis.Clip(in_features=v_lakes, clip_features=v_properties_join, out_feature_class=lakes_clip, cluster_tolerance='')
+    
+    rivers_clip = rf'{v_output}\rivers_clip'
+    analysis.Clip(in_features=v_rivers, clip_features=v_properties_join, out_feature_class=rivers_clip, cluster_tolerance='')
+    
     # Process: Merge (Merge) (management)
     uso_solo_merge = rf'{v_output}\uso_solo_merge'
-    management.Merge(inputs=[v_lakes, v_veg_current, v_saf, v_others_uses], output=uso_solo_merge)
+    management.Merge(inputs=[lakes_clip, v_veg_current, saf_clip, others_uses_clip], output=uso_solo_merge)
     
     # Process: Erase (Erase) (analysis)
     pastagem = rf'{v_output}\pastagem'
@@ -745,15 +761,15 @@ def properties(v_lakes, v_veg_current, v_saf, v_others_uses, v_properties_join, 
     # Process: Calculate Geometry Attributes (management)
     management.CalculateGeometryAttributes(in_features=pastagem, geometry_property='pastagem AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
     management.CalculateGeometryAttributes(in_features=v_saf, geometry_property='saf AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
-    management.CalculateGeometryAttributes(in_features=v_others_uses, geometry_property='outros_usos AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
+    management.CalculateGeometryAttributes(in_features=others_uses_clip, geometry_property='outros_usos AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
     
     # Process: Dissolve (management)
     saf_dissolve = rf'{v_output}\saf_dissolve'
-    management.Dissolve(in_features=v_saf, out_feature_class=saf_dissolve, dissolve_field='ID_PROPRIE', statistics_fields='saf SUM', multi_part='MULTI_PART', unsplit_lines='DISSOLVE_LINES')
+    management.Dissolve(in_features=saf_clip, out_feature_class=saf_dissolve, dissolve_field='ID_PROPRIE', statistics_fields='saf SUM', multi_part='MULTI_PART', unsplit_lines='DISSOLVE_LINES')
     management.AlterField(in_table=saf_dissolve, field='SUM_saf', new_field_name='saf', new_field_alias='saf', field_type='DOUBLE', field_length=8, field_is_nullable='NULLABLE')
     
-    others_uses_dissolve = rf'{v_output}\outros_usos_dissolve'
-    management.Dissolve(in_features=v_others_uses, out_feature_class=others_uses_dissolve, dissolve_field='ID_PROPRIE', statistics_fields='OUTROS_USOS SUM', multi_part='MULTI_PART', unsplit_lines='DISSOLVE_LINES')
+    others_uses_dissolve = rf'{v_output}\others_uses_dissolve'
+    management.Dissolve(in_features=others_uses_clip, out_feature_class=others_uses_dissolve, dissolve_field='ID_PROPRIE', statistics_fields='OUTROS_USOS SUM', multi_part='MULTI_PART', unsplit_lines='DISSOLVE_LINES')
     management.AlterField(in_table=others_uses_dissolve, field='SUM_outros_usos', new_field_name='outros_usos', new_field_alias='outros_usos', field_type='DOUBLE', field_length=8, field_is_nullable='NULLABLE')
     
     # Process: Join Field (Join Field) (management)
@@ -801,6 +817,6 @@ module_app_consolidada = app_consolidada(module_input[3], module_input[4], datas
 module_app_total = app_total(module_input[1], module_input[2], module_input[4], dataset_list[0], dataset_list[1])
 module_passivos_ativos = passivos_ativos(module_input[3], module_input[5], module_input[6], dataset_list[1], dataset_list[2], dataset_list[3])
 module_calculate = calculate(module_input[3], dataset_list[3], dataset_list[4])
-module_properties = properties(module_input[0], module_input[6], module_input[8], module_input[9], module_calculate, dataset_list[3], sptial_ref, dataset_list[0])
+module_properties = properties(module_input[0], module_input[6], module_input[8], module_input[9], module_calculate, dataset_list[3], sptial_ref, dataset_list[0], module_input[4], module_input[2])
 module_aprx_project = aprx_project(input_toolbox_path, output, dataset_list[5])
 module_print_map_series = print_map_series(module_aprx_project, output)
