@@ -760,7 +760,7 @@ def properties(v_lakes, v_veg_current, v_saf, v_others_uses, v_properties_join, 
     
     # Process: Calculate Geometry Attributes (management)
     management.CalculateGeometryAttributes(in_features=pastagem, geometry_property='pastagem AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
-    management.CalculateGeometryAttributes(in_features=v_saf, geometry_property='saf AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
+    management.CalculateGeometryAttributes(in_features=saf_clip, geometry_property='saf AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
     management.CalculateGeometryAttributes(in_features=others_uses_clip, geometry_property='outros_usos AREA', area_unit='HECTARES', coordinate_system=v_sptial_ref)
     
     # Process: Dissolve (management)
